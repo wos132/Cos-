@@ -2,56 +2,92 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Nagrywanie</title>
+<title>Rear Camera Recorder</title>
 <style>
-  body, html {
-    margin: 0;
-    height: 100%;
-    background: black;
-    color: white;
-    user-select: none;
-  }
-  #overlay {
-    position: fixed;
-    inset: 0;
-    background: black;
-    display: none;
-  }
+html, body {
+  margin: 0;
+  height: 100%;
+  background: black;
+  color: white;
+  font-family: Arial;
+  user-select: none;
+}
+
+#screen {
+  position: fixed;
+  inset: 0;
+  background: black;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#download {
+  display: none;
+  margin-top: 20px;
+}
 </style>
 </head>
 <body>
 
-<h1>Nagrywanie aktywne</h1>
-<button onclick="start()">START</button>
-
-<div id="overlay"></div>
+<div id="screen">
+  <h2>🔴 Nagrywanie…</h2>
+  <button id="download">⬇ Pobierz nagranie</button>
+</div>
 
 <script>
-let mediaRecorder;
+let recorder;
+let chunks = [];
 let holdTimer;
+let videoBlob;
 
-async function start() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.start();
+async function startRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: { exact: "environment" }
+    },
+    audio: true
+  });
 
-  document.getElementById("overlay").style.display = "block";
+  recorder = new MediaRecorder(stream, {
+    mimeType: "video/webm"
+  });
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.onstop = () => {
+    videoBlob = new Blob(chunks, { type: "video/webm" });
+    document.getElementById("download").style.display = "block";
+  };
+
+  recorder.start();
 }
 
-const overlay = document.getElementById("overlay");
+function stopRecording() {
+  if (recorder && recorder.state !== "inactive") {
+    recorder.stop();
+  }
+}
 
-overlay.addEventListener("mousedown", () => {
-  holdTimer = setTimeout(stop, 7000);
+const screen = document.getElementById("screen");
+
+screen.addEventListener("touchstart", () => {
+  holdTimer = setTimeout(stopRecording, 2000);
 });
 
-overlay.addEventListener("mouseup", () => {
+screen.addEventListener("touchend", () => {
   clearTimeout(holdTimer);
 });
 
-function stop() {
-  mediaRecorder.stop();
-  alert("Nagrywanie zatrzymane");
-}
+document.getElementById("download").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(videoBlob);
+  a.download = "kamera_tylna.webm";
+  a.click();
+};
+
+startRecording();
 </script>
 
 </body>
