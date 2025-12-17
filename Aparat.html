@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Nagrywanie</title>
+<style>
+  body, html {
+    margin: 0;
+    height: 100%;
+    background: black;
+    color: white;
+    user-select: none;
+  }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: black;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>Nagrywanie aktywne</h1>
+<button onclick="start()">START</button>
+
+<div id="overlay"></div>
+
+<script>
+let mediaRecorder;
+let holdTimer;
+
+async function start() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.start();
+
+  document.getElementById("overlay").style.display = "block";
+}
+
+const overlay = document.getElementById("overlay");
+
+overlay.addEventListener("mousedown", () => {
+  holdTimer = setTimeout(stop, 7000);
+});
+
+overlay.addEventListener("mouseup", () => {
+  clearTimeout(holdTimer);
+});
+
+function stop() {
+  mediaRecorder.stop();
+  alert("Nagrywanie zatrzymane");
+}
+</script>
+
+</body>
+</html>
