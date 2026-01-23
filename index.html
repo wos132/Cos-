@@ -2,92 +2,155 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
-<title>Rear Camera Recorder</title>
+<title>NFC DECRYPTOR</title>
 <style>
-html, body {
-  margin: 0;
-  height: 100%;
-  background: black;
-  color: white;
-  font-family: Arial;
-  user-select: none;
-}
+    body {
+        margin: 0;
+        background: black;
+        color: white;
+        font-family: monospace;
+        overflow: hidden;
+    }
 
-#screen {
-  position: fixed;
-  inset: 0;
-  background: black;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
+    #center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        width: 90%;
+    }
 
-#download {
-  display: none;
-  margin-top: 20px;
-}
+    button {
+        background: black;
+        color: white;
+        border: 1px solid white;
+        padding: 15px 30px;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    #log {
+        margin-top: 20px;
+        font-size: 14px;
+        white-space: pre-line;
+    }
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: none;
+    }
 </style>
 </head>
 <body>
 
-<div id="screen">
-  <h2></h2>
-  <button id="download">⬇ Pobierz nagranie</button>
+<div id="center">
+    <button onclick="startNFC()">ROZPOCZNIJ SKANOWANIE NFC</button>
+    <div id="log"></div>
 </div>
 
+<canvas id="matrix"></canvas>
+
 <script>
-let recorder;
-let chunks = [];
-let holdTimer;
-let videoBlob;
+let log = document.getElementById("log");
+let canvas = document.getElementById("matrix");
+let ctx = canvas.getContext("2d");
 
-async function startRecording() {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: {
-      facingMode: { exact: "environment" }
-    },
-    audio: true
-  });
-
-  recorder = new MediaRecorder(stream, {
-    mimeType: "video/webm"
-  });
-
-  recorder.ondataavailable = e => chunks.push(e.data);
-
-  recorder.onstop = () => {
-    videoBlob = new Blob(chunks, { type: "video/webm" });
-    document.getElementById("download").style.display = "block";
-  };
-
-  recorder.start();
+function addLog(text) {
+    log.innerText += text + "\n";
 }
 
-function stopRecording() {
-  if (recorder && recorder.state !== "inactive") {
-    recorder.stop();
-  }
+async function startNFC() {
+    log.innerText = "";
+    addLog("[SYSTEM] Inicjalizacja modułu NFC...");
+    addLog("[SYSTEM] Oczekiwanie na tag...");
+
+    if (!("NDEFReader" in window)) {
+        addLog("[BŁĄD] Web NFC nieobsługiwane.");
+        return;
+    }
+
+    try {
+        const reader = new NDEFReader();
+        await reader.scan();
+
+        reader.onreading = () => {
+            addLog("[OK] TAG WYKRYTY");
+            startDecrypt();
+        };
+    } catch (err) {
+        addLog("[BŁĄD] Brak dostępu do NFC");
+    }
 }
 
-const screen = document.getElementById("screen");
+function startDecrypt() {
+    log.innerText = "";
+    const messages = [
+        "Łączenie z tagiem...",
+        "Pobieranie danych binarnych...",
+        "Analiza sektorów pamięci...",
+        "Deszyfrowanie klucza...",
+        "Walidacja sygnatury...",
+        "Dekodowanie strumienia..."
+    ];
 
-screen.addEventListener("touchstart", () => {
-  holdTimer = setTimeout(stopRecording, 2000);
-});
+    let i = 0;
+    let interval = setInterval(() => {
+        addLog("[NFC] " + messages[i % messages.length]);
+        i++;
+    }, 800);
 
-screen.addEventListener("touchend", () => {
-  clearTimeout(holdTimer);
-});
+    setTimeout(() => {
+        clearInterval(interval);
+        document.getElementById("center").style.display = "none";
+        startMatrix();
+    }, 10000);
+}
 
-document.getElementById("download").onclick = () => {
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(videoBlob);
-  a.download = "kamera_tylna.webm";
-  a.click();
-};
+function startMatrix() {
+    canvas.style.display = "block";
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-startRecording();
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    const drops = Array(Math.floor(columns)).fill(1);
+
+    function draw() {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "white";
+        ctx.font = fontSize + "px monospace";
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = letters[Math.floor(Math.random() * letters.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            drops[i]++;
+        }
+    }
+
+    setInterval(draw, 50);
+
+    setTimeout(showFinalText, 4000);
+}
+
+function showFinalText() {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.font = "48px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("TAG NFC ZDESZYFROWANY", canvas.width / 2, canvas.height / 2);
+}
 </script>
 
 </body>
